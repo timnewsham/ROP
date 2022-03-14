@@ -1,0 +1,71 @@
+From: newsham () ALOHA NET (Tim Newsham)
+Date: Sun, 27 Apr 1997 19:40:43 -1000
+
+> 3.  'ok, what about the CPU/OS kernel stack exec permission?'
+>         What about stopping the buffer overflow problem at the kernel
+> level?  This might mean that you wouldn't have to inspect thousands of
+> lines of code, rebuild gcc, or recompile anything except the kernel.
+> Sounds nice, doesn't it.. well...
+>         This has been a favorite one lately on BUGTRAQ and has come up a
+> few times on the linux-kernel mailing list.  Solar Designer's recent
+> patches to the Linux kernel to remove stack exec permission, posted to
+> this list earlier this month, raised some interesting questions about
+> the buffer overflow problem, and how it can be implemented into an OS,
+> as well and the problems and dangers of doing this.  In terms of Linux,
+> this type of patch has the danger of breaking things that use
+> "trampoline functions"(gcc & glibc), high level lisp interpreters,
+> objective C.  Furthermore, returning from a signal requires an
+> executable stack (in Linux, anyways)..  Workarounds for these problems
+> introduce new problems (buffer overflows in signal handlers?)  and may
+> not be a suitable solution?  I am assuming there are similar problems in
+> implementing this under other operating systems?
+> 
+> -Nate Smith <nate () millcomm com> | http://millcomm.com/~nate/
+
+In my opinion this fix is a hack and a bad one at that.  It
+breaks existing programs by taking away a legitimate operation.
+It also doesn't fix the problem.  What it does is protects
+against the current exploits.  If you can overwrite the
+values of the stack you can cause a program to misbehave in
+other ways than hand crafting assembly and jumping to it.
+If you can overwrite other variables (wether they are on
+the stack or in some other part of memory), you may be
+able to alter the behavior of a program to suit your needs.
+
+The ability to overwrite the stack with arbitrary data
+is very powerful.   Besides return addresses the stack
+is also used to save register values and to hold variables.
+Most programs have segments of code that look like:
+
+     restore some registers from the stack
+     return from subroutine
+
+If an attacker knows the address of such code, he can
+provide register contents on the stack and set the return
+address to point to this code.  When the next return
+happens, registers are set with whatever values he put
+on the stack, another return is done pulling another
+address off the stack.  Say the next return address on
+the stack pointed to code that trapped to the system call
+vector.  We just put arbitrary values in registers and
+then trapped to the system - we have the ability to
+do arbitrary system calls.  All the code that was executed
+was from the code segment.
+
+By controlling the stack, an attacker can cause execution
+to thread through segments of existing code with a great
+degree of freedom.  The attacks have to accurately compute
+the location of stack positions and code addresses so
+the attack is definitely a lot harder than the cookie-cutter
+stack overflows that you see today, but its still
+``just a simple matter of coding''.
+
+Real attacks have additional constraints, such as "no
+null bytes on the stack".  This might make a complicated
+attack a bit harder,  but I believe a clever attacker will
+be able to surmount these difficulties.
+
+I hope this gives everyone warm fuzzies about taking
+exec permissions off of their stack.
+
+                                      Tim N.
